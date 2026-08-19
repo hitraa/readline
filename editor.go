@@ -112,6 +112,7 @@ func (e *Editor) watchOSSignals() {
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	<-ch
 	_ = e.term.leaveRaw()
+	e.Close()
 	os.Exit(1)
 }
 
@@ -344,7 +345,7 @@ func (e *Editor) handleEvent(evt InputEvent, buf *LineBuffer) (done bool, line s
 		buf.Insert(evt.Rune)
 		e.renderer.Redraw(buf)
 
-	// Tab / other keys: extensible — no-op for now.
+		// Tab / other keys: extensible — no-op for now.
 	}
 
 	return false, "", nil
