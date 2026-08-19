@@ -17,10 +17,10 @@ func main() {
 	// but normally it will auto-detect TTY). Let's make sure it's enabled for this demo.
 	format.Enable()
 
-	histFile := os.ExpandEnv("$HOME/.argos_history")
+	histFile := os.ExpandEnv("$HOME/.my_input_history")
 
 	// Create a beautiful prompt using the format package
-	prompt := format.StyleBoldGreen.Sprint("argos") + format.StyleBold.Sprint(":") + " "
+	prompt := format.StyleBoldGreen.Sprint("my_input") + format.StyleBold.Sprint(":") + " "
 
 	config := readline.Config{
 		Prompt:        prompt,
@@ -44,7 +44,7 @@ func main() {
 	})
 
 	// Print styled banners
-	fmt.Printf("%s\r\n", format.New().Bold().Fg(format.Cyan).Sprint("Argos Interactive Shell"))
+	fmt.Printf("%s\r\n", format.New().Bold().Fg(format.Cyan).Sprint("My Interactive Shell"))
 	fmt.Printf("%s\r\n", format.StyleFaint.Sprint("Ctrl+C to cancel, Ctrl+D to exit, Up/Down for history"))
 	fmt.Println()
 
@@ -59,7 +59,7 @@ func main() {
 				// Ctrl+C pressed — just prompt again.
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "%s %v\n", format.StyleBoldRed.Sprint("error:"), err)
+			fmt.Fprintf(os.Stderr, "%s %v\r\n", format.StyleBoldRed.Sprint("error:"), err)
 			return
 		}
 
@@ -74,6 +74,7 @@ func main() {
 
 		switch strings.ToLower(fields[0]) {
 		case "exit", "quit", "close":
+			ed.Close()
 			fmt.Printf("%s\r\n", format.StyleBoldGreen.Sprint("Goodbye!"))
 			return
 		case "history":

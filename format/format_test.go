@@ -230,7 +230,7 @@ func TestStrip(t *testing.T) {
 	}{
 		{"\033[1;31mhello\033[0m", "hello"},
 		{"\033[2J\033[Hhello", "hello"},
-		{"\x1b[1;32margos\x1b[0m\x1b[1m:\x1b[0m ", "argos: "},
+		{"\x1b[1;32mmy_input\x1b[0m\x1b[1m:\x1b[0m ", "my_input: "},
 		{"normal text", "normal text"},
 		{"\x1b[m", ""},
 		{"\x1b[?25h", ""},
@@ -345,4 +345,3 @@ func TestIsTerminalFallback(t *testing.T) {
 		_ = isTerminal(f)
 	}
 }
-
