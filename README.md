@@ -153,3 +153,10 @@ The library is designed modularly to ensure safety and testability:
 - **EscapeParser (`escape.go`)**: Converts raw byte streams from stdin into high-level terminal action events.
 - **Renderer (`render.go`)**: Optimizes terminal redrawing by using ANSI control commands, wiping lines, and keeping cursor alignment.
 - **Editor (`editor.go`)**: Integrates terminal state modifications (raw mode termios), OS signals, event reading loops, and binds actions together.
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
