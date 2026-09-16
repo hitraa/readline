@@ -367,3 +367,73 @@ func TestSearchMode_AcceptAndCancel(t *testing.T) {
 		t.Fatalf("want ErrInterrupt on Ctrl+C, got %v %v %v", handled, done, err)
 	}
 }
+
+func TestEditor_TabCompletionCycling(t *testing.T) {
+	commands := []string{"help", "exit", "quit", "history", "clear", "password", "echo", "status"}
+	cfg := Config{
+		Completer: PrefixCompleter(commands...),
+	}
+	ed := &Editor{
+		cfg:       cfg,
+		renderer:  NewRenderer(&bytes.Buffer{}, "> "),
+		undoStack: NewUndoStack(50),
+		history:   NewHistory(50),
+	}
+
+	buf := NewLineBuffer()
+	buf.Set("hello ")
+	buf.SetPos(6)
+
+	// 1st Tab: enter completion mode, grid shown, buffer unchanged
+	ed.handleEvent(InputEvent{Key: KeyTab}, buf)
+	if !ed.completing {
+		t.Fatal("expected completing=true after first Tab")
+	}
+	if buf.String() != "hello " {
+		t.Fatalf("expected buffer to remain 'hello ', got %q", buf.String())
+	}
+
+	// 2nd Tab: cycle to candidate 0 ("help")
+	ed.handleEvent(InputEvent{Key: KeyTab}, buf)
+	if buf.String() != "hello help" {
+		t.Fatalf("expected 'hello help', got %q", buf.String())
+	}
+
+	// 3rd Tab: cycle to candidate 1 ("exit") - must NOT concatenate!
+	ed.handleEvent(InputEvent{Key: KeyTab}, buf)
+	if buf.String() != "hello exit" {
+		t.Fatalf("expected 'hello exit', got %q", buf.String())
+	}
+
+	// 4th Tab: cycle to candidate 2 ("quit")
+	ed.handleEvent(InputEvent{Key: KeyTab}, buf)
+	if buf.String() != "hello quit" {
+		t.Fatalf("expected 'hello quit', got %q", buf.String())
+	}
+
+	// BackTab (Shift+Tab): cycle back to candidate 1 ("exit")
+	ed.handleEvent(InputEvent{Key: KeyBackTab}, buf)
+	if buf.String() != "hello exit" {
+		t.Fatalf("expected 'hello exit' on Shift+Tab, got %q", buf.String())
+	}
+
+	// Esc: cancel completion, restores original buffer
+	ed.handleEvent(InputEvent{Key: KeyEsc}, buf)
+	if ed.completing {
+		t.Fatal("expected completing=false after Esc")
+	}
+	if buf.String() != "hello " {
+		t.Fatalf("expected 'hello ' restored on Esc, got %q", buf.String())
+	}
+
+	// Test single candidate auto-completion
+	buf.Set("hello q")
+	buf.SetPos(7)
+	ed.handleEvent(InputEvent{Key: KeyTab}, buf)
+	if buf.String() != "hello quit" {
+		t.Fatalf("expected 'hello quit' on single match, got %q", buf.String())
+	}
+	if ed.completing {
+		t.Fatal("expected completing=false for single match")
+	}
+}

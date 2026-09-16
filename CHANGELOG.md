@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Panic Recovery**: Added deferred raw mode cleanup in `ReadLine` and `ReadPassword` to guarantee shell restoration even if a panic occurs.
 - **Multi-Row Line Wrapping**: Replaced single-row `\r\033[K` assumption with multi-row cursor tracking and clearance across terminal column boundaries.
 - **Escape Key Buffer Loss**: Fixed parser state machine dropping subsequent bytes when a lone `Esc` is entered.
+- **Completion Candidate Cycling**: Fixed candidate string concatenation during repeated `Tab` presses by resetting buffer to initial state before each candidate insertion; pressing `Esc` restores original buffer.
 
 ### 🧪 Tests & Quality
 

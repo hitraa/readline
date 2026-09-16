@@ -94,7 +94,7 @@ type Editor struct {
 	compCandidates []Completion
 	compIdx        int
 	compPrefixLen  int
-	compOrigWord   string
+	compOrigBuf    string
 	compOrigPos    int
 	lastWasYank    bool
 }
@@ -412,6 +412,13 @@ func (e *Editor) handleEvent(evt InputEvent, buf *LineBuffer) (done bool, line s
 
 	// Completion handling: cancel completion state if another key is pressed
 	if e.completing && evt.Key != KeyTab && evt.Key != KeyBackTab {
+		if evt.Key == KeyEsc {
+			buf.Set(e.compOrigBuf)
+			buf.SetPos(e.compOrigPos)
+			e.completing = false
+			e.renderer.Redraw(buf)
+			return false, "", nil
+		}
 		e.completing = false
 		e.renderer.Redraw(buf)
 	}
@@ -639,10 +646,12 @@ func (e *Editor) handleEvent(evt InputEvent, buf *LineBuffer) (done bool, line s
 				break
 			}
 			// Multiple candidates: enter completion mode and display candidate grid
+			e.undoStack.Save(buf)
 			e.completing = true
 			e.compCandidates = comps
-			e.compIdx = 0
+			e.compIdx = -1
 			e.compPrefixLen = pLen
+			e.compOrigBuf = buf.String()
 			e.compOrigPos = buf.Pos()
 
 			// Render completion list below current prompt
@@ -656,9 +665,10 @@ func (e *Editor) handleEvent(evt InputEvent, buf *LineBuffer) (done bool, line s
 			e.renderer.lastRows = 1
 			e.renderer.Redraw(buf)
 		} else {
-			// Cycle to next candidate
+			// Cycle to next candidate cleanly
 			e.compIdx = (e.compIdx + 1) % len(e.compCandidates)
 			cand := e.compCandidates[e.compIdx]
+			buf.Set(e.compOrigBuf)
 			buf.SetPos(e.compOrigPos)
 			for i := 0; i < e.compPrefixLen; i++ {
 				buf.Backspace()
@@ -669,8 +679,13 @@ func (e *Editor) handleEvent(evt InputEvent, buf *LineBuffer) (done bool, line s
 
 	case KeyBackTab:
 		if e.completing && len(e.compCandidates) > 0 {
-			e.compIdx = (e.compIdx - 1 + len(e.compCandidates)) % len(e.compCandidates)
+			if e.compIdx <= 0 {
+				e.compIdx = len(e.compCandidates) - 1
+			} else {
+				e.compIdx--
+			}
 			cand := e.compCandidates[e.compIdx]
+			buf.Set(e.compOrigBuf)
 			buf.SetPos(e.compOrigPos)
 			for i := 0; i < e.compPrefixLen; i++ {
 				buf.Backspace()
