@@ -101,6 +101,8 @@ func main() {
 			pw, err := ed.ReadPasswordWithMask(maskRune, prompt)
 			if err != nil {
 				fmt.Printf("Password entry cancelled (%v)\r\n", err)
+			} else if pw == "" {
+				fmt.Printf("%s\r\n", format.StyleItalic.Sprint("Empty password entered (no password set, length: 0)"))
 			} else {
 				fmt.Printf("Received token length: %d characters (not persisted to history)\r\n", len(pw))
 			}

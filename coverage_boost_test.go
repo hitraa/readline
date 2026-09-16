@@ -487,4 +487,16 @@ func TestEditor_ClearScreenAndMask(t *testing.T) {
 	if ed.cfg.Prompt != "orig_prompt: " {
 		t.Fatalf("expected prompt restored to 'orig_prompt: ', got %q", ed.cfg.Prompt)
 	}
+
+	// 5. ReadPassword allows empty password (e.g. like MySQL without password)
+	pr2, pwPipe2, _ := os.Pipe()
+	pwPipe2.WriteString("\n")
+	pwPipe2.Close()
+	defer pr2.Close()
+
+	ed.nonTTYReader = bufio.NewReader(pr2)
+	pwEmpty, errEmpty := ed.ReadPassword("Empty password test: ")
+	if errEmpty != nil || pwEmpty != "" {
+		t.Fatalf("expected empty password without error, got %q, %v", pwEmpty, errEmpty)
+	}
 }
