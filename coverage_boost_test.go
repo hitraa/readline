@@ -1,6 +1,7 @@
 package readline
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -466,5 +467,24 @@ func TestEditor_ClearScreenAndMask(t *testing.T) {
 	ed.renderer.ClearScreen(buf)
 	if !strings.Contains(out.String(), "\033[2J\033[H\033[3J") {
 		t.Fatalf("expected renderer clear sequence, got %q", out.String())
+	}
+
+	// 4. ReadPassword must restore original prompt after completion
+	pr, pwPipe, _ := os.Pipe()
+	pwPipe.WriteString("secret\n")
+	pwPipe.Close()
+	defer pr.Close()
+
+	ed.term = &terminal{isTerm: false}
+	ed.nonTTYReader = bufio.NewReader(pr)
+	ed.cfg.Prompt = "orig_prompt: "
+	ed.renderer.SetPrompt("orig_prompt: ")
+
+	pw, err := ed.ReadPassword("Password prompt: ")
+	if err != nil || pw != "secret" {
+		t.Fatalf("unexpected read password result: %q, %v", pw, err)
+	}
+	if ed.cfg.Prompt != "orig_prompt: " {
+		t.Fatalf("expected prompt restored to 'orig_prompt: ', got %q", ed.cfg.Prompt)
 	}
 }

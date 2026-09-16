@@ -365,8 +365,10 @@ func (e *Editor) readLineNonTTY(ctx context.Context) (string, error) {
 // ReadPassword reads a secret line without echoing characters to the terminal.
 // It does not record input into history.
 func (e *Editor) ReadPassword(prompt ...string) (string, error) {
+	origPrompt := e.cfg.Prompt
 	if len(prompt) > 0 && prompt[0] != "" {
 		e.SetPrompt(prompt[0])
+		defer e.SetPrompt(origPrompt)
 	}
 
 	if !e.term.IsTerminal() {
