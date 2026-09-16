@@ -676,4 +676,3 @@ func TestRenderer_Write(t *testing.T) {
 		t.Fatalf("expected 'raw text', got %q", sb.String())
 	}
 }
-
