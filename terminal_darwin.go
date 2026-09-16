@@ -17,16 +17,17 @@ const (
 )
 
 type terminal struct {
-	fd       int
-	orig     syscall.Termios
-	inRaw    bool
-	isTerm   bool
-	sigWinCh chan os.Signal
-	onResize func(cols, rows int)
+	fd            int
+	orig          syscall.Termios
+	inRaw         bool
+	isTerm        bool
+	enableSignals bool
+	sigWinCh      chan os.Signal
+	onResize      func(cols, rows int)
 }
 
 func newTerminal(f *os.File, enableSignals bool) (*terminal, error) {
-	t := &terminal{fd: int(f.Fd())}
+	t := &terminal{fd: int(f.Fd()), enableSignals: enableSignals}
 	orig, err := tcGet(t.fd)
 	if err != nil {
 		t.isTerm = false
@@ -42,6 +43,8 @@ func newTerminal(f *os.File, enableSignals bool) (*terminal, error) {
 	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN
 	if !enableSignals {
 		raw.Lflag &^= syscall.ISIG
+	} else {
+		raw.Cc[syscall.VINTR] = 0
 	}
 	raw.Cc[syscall.VMIN] = 1
 	raw.Cc[syscall.VTIME] = 0
@@ -72,6 +75,11 @@ func (t *terminal) enterRaw() error {
 	raw.Oflag &^= syscall.OPOST
 	raw.Cflag |= syscall.CS8
 	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN
+	if !t.enableSignals {
+		raw.Lflag &^= syscall.ISIG
+	} else {
+		raw.Cc[syscall.VINTR] = 0
+	}
 	raw.Cc[syscall.VMIN] = 1
 	raw.Cc[syscall.VTIME] = 0
 	if err := tcSet(t.fd, &raw); err != nil {

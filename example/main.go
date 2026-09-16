@@ -85,7 +85,20 @@ func main() {
 			}
 
 		case "password":
-			pw, err := ed.ReadPassword("Enter secret token: ")
+			maskRune := '*'
+			if len(fields) > 1 {
+				arg := fields[1]
+				if arg == "silent" || arg == "none" {
+					maskRune = 0
+				} else {
+					maskRune = []rune(arg)[0]
+				}
+			}
+			prompt := fmt.Sprintf("Enter secret (mask: %c, or use 'password silent'): ", maskRune)
+			if maskRune == 0 {
+				prompt = "Enter secret (silent, no echo): "
+			}
+			pw, err := ed.ReadPasswordWithMask(maskRune, prompt)
 			if err != nil {
 				fmt.Printf("Password entry cancelled (%v)\r\n", err)
 			} else {
@@ -103,7 +116,7 @@ func main() {
 			}
 
 		case "clear":
-			fmt.Print("\033[2J\033[H")
+			ed.ClearScreen()
 
 		default:
 			cmdStyle := format.New().Bold().Fg(format.BrightYellow)

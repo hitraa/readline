@@ -437,3 +437,34 @@ func TestEditor_TabCompletionCycling(t *testing.T) {
 		t.Fatal("expected completing=false for single match")
 	}
 }
+
+func TestEditor_ClearScreenAndMask(t *testing.T) {
+	var out bytes.Buffer
+	ed := &Editor{
+		renderer: NewRenderer(&out, "> "),
+	}
+
+	// 1. ClearScreen should emit viewport + scrollback clear sequence \033[2J\033[H\033[3J
+	ed.ClearScreen()
+	if !strings.Contains(out.String(), "\033[2J\033[H\033[3J") {
+		t.Fatalf("expected viewport and scrollback clear sequence, got %q", out.String())
+	}
+	if ed.renderer.lastRows != 1 {
+		t.Fatalf("expected lastRows=1 after ClearScreen, got %d", ed.renderer.lastRows)
+	}
+
+	// 2. SetMask updates mask
+	ed.SetMask('*')
+	if ed.cfg.Mask != '*' {
+		t.Fatalf("expected mask '*', got %c", ed.cfg.Mask)
+	}
+
+	// 3. Renderer ClearScreen also emits scrollback clear
+	out.Reset()
+	buf := NewLineBuffer()
+	buf.Set("test")
+	ed.renderer.ClearScreen(buf)
+	if !strings.Contains(out.String(), "\033[2J\033[H\033[3J") {
+		t.Fatalf("expected renderer clear sequence, got %q", out.String())
+	}
+}

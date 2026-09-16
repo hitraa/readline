@@ -11,16 +11,17 @@ import (
 
 // terminal holds per-platform terminal state.
 type terminal struct {
-	fd       int
-	orig     syscall.Termios
-	inRaw    bool
-	isTerm   bool
-	sigWinCh chan os.Signal
-	onResize func(cols, rows int)
+	fd            int
+	orig          syscall.Termios
+	inRaw         bool
+	isTerm        bool
+	enableSignals bool
+	sigWinCh      chan os.Signal
+	onResize      func(cols, rows int)
 }
 
 func newTerminal(f *os.File, enableSignals bool) (*terminal, error) {
-	t := &terminal{fd: int(f.Fd())}
+	t := &terminal{fd: int(f.Fd()), enableSignals: enableSignals}
 	orig, err := tcGet(t.fd)
 	if err != nil {
 		// Stdin is not a terminal (e.g. pipe or redirected file)
@@ -41,6 +42,11 @@ func newTerminal(f *os.File, enableSignals bool) (*terminal, error) {
 	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN
 	if !enableSignals {
 		raw.Lflag &^= syscall.ISIG
+	} else {
+		// When signals are enabled (e.g. for Ctrl+Z suspension), disable VINTR
+		// so Ctrl+C (0x03) is delivered as an input byte to the editor instead of
+		// killing the process with an unhandled SIGINT before cleanup.
+		raw.Cc[syscall.VINTR] = 0
 	}
 	// Read returns after 1 byte, no timeout
 	raw.Cc[syscall.VMIN] = 1
@@ -74,6 +80,11 @@ func (t *terminal) enterRaw() error {
 	raw.Oflag &^= syscall.OPOST
 	raw.Cflag |= syscall.CS8
 	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN
+	if !t.enableSignals {
+		raw.Lflag &^= syscall.ISIG
+	} else {
+		raw.Cc[syscall.VINTR] = 0
+	}
 	raw.Cc[syscall.VMIN] = 1
 	raw.Cc[syscall.VTIME] = 0
 	if err := tcSet(t.fd, &raw); err != nil {

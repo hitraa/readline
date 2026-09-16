@@ -20,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Candidate cycling via `Tab` (forward) and `Shift+Tab` / `KeyBackTab` (backward).
 - **Token & Quote Parser**: Lexes single quotes (`'...'`), double quotes (`"..."`), and backslash-escaped spaces (`\ `) for argument completion boundaries.
 - **Reverse Incremental Search (Ctrl+R / Ctrl+S)**: Interactive history search with real-time matching, query editing via backspace, and safe cancel without input buffer corruption.
-- **Password & Secret Mode**: `ReadPassword(prompt...)` reading secrets without terminal echo (or optional mask character) and without saving to history.
+- **Password & Secret Mode**: `ReadPassword(prompt...)` reading secrets without terminal echo, `SetMask(rune)` to configure mask character dynamically, and `ReadPasswordWithMask(mask, prompt...)` supporting custom masks (`*`, `#`, or silent).
+- **ClearScreen API**: `Editor.ClearScreen()` and `Renderer.ClearScreen()` clearing viewport and scrollback buffer (`\033[2J\033[H\033[3J`) without terminal slide or cursor jumps.
 - **Context-Aware ReadLine**: `ReadLineContext(ctx, prompt...)` enabling non-blocking timeouts and cancellation deadlines.
 - **Emacs-Style Kill Ring**: Circular kill ring saving deletions from `Ctrl+K`, `Ctrl+U`, `Ctrl+W`, and `Alt+D` with yank (`Ctrl+Y`) and yank-pop (`Alt+Y`).
 - **Multi-Level Undo & Redo**: `UndoStack` with undo (`Ctrl+_`) and redo support.
@@ -37,7 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Fixed
 
-- **Signal Safety & Terminal Restore**: Prevented signal watcher from calling `os.Exit(1)` on SIGINT; eliminated goroutine leak on editor shutdown.
+- **Signal Safety & Terminal Restore**: Prevented terminal from remaining in raw mode on Ctrl+C by disabling `VINTR` in raw termios (delivering `0x03` cleanly to `ReadLine` to return `ErrInterrupt`), and registering `os.Interrupt` in `watchOSSignals` so external signals cleanly restore the shell terminal.
+- **Terminal Staircase & Echo Loss**: Fixed shell staircase indentation and invisible typing caused by raw mode leaks on process interruption.
+- **Viewport & Scrollback Clear**: Updated clear sequence to include `\033[3J` and reset row layout tracking to prevent terminal sliding upside when typing after `clear`.
 - **Panic Recovery**: Added deferred raw mode cleanup in `ReadLine` and `ReadPassword` to guarantee shell restoration even if a panic occurs.
 - **Multi-Row Line Wrapping**: Replaced single-row `\r\033[K` assumption with multi-row cursor tracking and clearance across terminal column boundaries.
 - **Escape Key Buffer Loss**: Fixed parser state machine dropping subsequent bytes when a lone `Esc` is entered.

@@ -161,21 +161,46 @@ func New(cfg Config) (*Editor, error) {
 	return e, nil
 }
 
-// watchOSSignals restores the terminal on SIGTERM/SIGHUP so the shell is left
-// in a usable state even if the process is killed.
+// watchOSSignals restores the terminal on SIGINT/SIGTERM/SIGHUP so the shell is left
+// in a usable state even if the process is terminated externally.
 func (e *Editor) watchOSSignals() {
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGTERM, syscall.SIGHUP)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer signal.Stop(ch)
 
 	select {
 	case <-ch:
 		_ = e.term.leaveRaw()
 		_ = e.Close()
-		os.Exit(1)
+		fmt.Fprint(e.renderer.out, "\r\n")
+		os.Exit(130)
 	case <-e.sigCloseCh:
 		return
 	}
+}
+
+// ClearScreen clears the terminal viewport and scrollback buffer,
+// resetting the cursor to the top-left corner and resetting row layout state.
+func (e *Editor) ClearScreen() {
+	if e.renderer != nil {
+		fmt.Fprint(e.renderer.out, "\033[2J\033[H\033[3J")
+		e.renderer.lastRows = 1
+	}
+}
+
+// SetMask updates the mask character used by ReadPassword (e.g. '*', '#', or 0 for silent).
+func (e *Editor) SetMask(mask rune) {
+	e.cfg.Mask = mask
+}
+
+// ReadPasswordWithMask reads secret input using the specified mask rune without persisting to history.
+// When mask is 0, input is completely silent (no characters echoed, like standard sudo).
+// When mask is non-zero (e.g. '*', '#'), each typed rune is displayed as the mask character.
+func (e *Editor) ReadPasswordWithMask(mask rune, prompt ...string) (string, error) {
+	orig := e.cfg.Mask
+	e.cfg.Mask = mask
+	defer func() { e.cfg.Mask = orig }()
+	return e.ReadPassword(prompt...)
 }
 
 // SetPrompt replaces the prompt for subsequent ReadLine calls.
@@ -250,15 +275,16 @@ func (e *Editor) ReadLineContext(ctx context.Context, prompt ...string) (string,
 	e.history.Reset()
 	e.undoStack.Reset()
 	e.completing = false
+	e.renderer.lastRows = 1
 
 	// Update columns
 	if cols, _, err := e.term.GetSize(); err == nil && cols > 0 {
 		e.renderer.SetColumns(cols)
 	}
 
-	// Print prompt
+	// Print prompt via Redraw so row layout tracking is initialized cleanly
 	e.renderer.SetPrompt(e.cfg.Prompt)
-	fmt_fprint(e.renderer, e.cfg.Prompt)
+	e.renderer.Redraw(buf)
 
 	type eventResult struct {
 		evt InputEvent
@@ -357,6 +383,7 @@ func (e *Editor) ReadPassword(prompt ...string) (string, error) {
 		}
 	}()
 
+	e.renderer.lastRows = 1
 	fmt_fprint(e.renderer, e.cfg.Prompt)
 
 	var runes []rune

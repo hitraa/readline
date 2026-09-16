@@ -131,9 +131,10 @@ func (r *Renderer) Redraw(buf *LineBuffer) {
 	r.lastRows = totalRows
 }
 
-// ClearScreen clears the entire terminal and redraws the current prompt+buffer.
+// ClearScreen clears the entire terminal viewport and scrollback buffer,
+// and redraws the current prompt+buffer.
 func (r *Renderer) ClearScreen(buf *LineBuffer) {
-	fmt.Fprint(r.out, "\033[2J\033[H")
+	fmt.Fprint(r.out, "\033[2J\033[H\033[3J")
 	r.lastRows = 1
 	r.Redraw(buf)
 }
