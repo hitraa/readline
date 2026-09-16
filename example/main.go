@@ -12,9 +12,6 @@ import (
 )
 
 func main() {
-	// Enable color explicitly for the example if it was disabled by TTY check
-	// (so that even in subagent/non-interactive test runs, we can see the codes or test functionality,
-	// but normally it will auto-detect TTY). Let's make sure it's enabled for this demo.
 	format.Enable()
 
 	histFile := os.ExpandEnv("$HOME/.my_input_history")
@@ -22,11 +19,15 @@ func main() {
 	// Create a beautiful prompt using the format package
 	prompt := format.StyleBoldGreen.Sprint("my_input") + format.StyleBold.Sprint(":") + " "
 
+	// Configure built-in commands for autocompletion
+	commands := []string{"help", "exit", "quit", "history", "clear", "password", "echo", "status"}
+
 	config := readline.Config{
 		Prompt:        prompt,
 		HistoryFile:   histFile,
 		MaxHistory:    1000,
-		EnableSignals: true, // Ctrl+Z suspends normally
+		EnableSignals: true, // Allow Ctrl+Z to suspend normally
+		Completer:     readline.PrefixCompleter(commands...),
 	}
 
 	ed, err := readline.New(config)
@@ -36,22 +37,21 @@ func main() {
 	}
 	defer ed.Close()
 
-	// Optional: redraw on terminal resize.
+	// Optional: hook terminal resize
 	ed.WatchResize(func(cols, rows int) {
-		// In a real app you might re-wrap output here.
 		_ = cols
 		_ = rows
 	})
 
 	// Print styled banners
 	fmt.Printf("%s\r\n", format.New().Bold().Fg(format.Cyan).Sprint("My Interactive Shell"))
-	fmt.Printf("%s\r\n", format.StyleFaint.Sprint("Ctrl+C to cancel, Ctrl+D to exit, Up/Down for history"))
+	fmt.Printf("%s\r\n", format.StyleFaint.Sprint("Ctrl+R: reverse search | Tab: autocompletion | Ctrl+C: cancel | Ctrl+D: exit"))
 	fmt.Println()
 
 	for {
 		line, err := ed.ReadLine()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				fmt.Printf("\r\n%s\r\n", format.StyleBoldGreen.Sprint("Goodbye!"))
 				return
 			}
@@ -77,6 +77,21 @@ func main() {
 			ed.Close()
 			fmt.Printf("%s\r\n", format.StyleBoldGreen.Sprint("Goodbye!"))
 			return
+
+		case "help":
+			fmt.Printf("%s\r\n", format.StyleBold.Sprint("Available commands:"))
+			for _, cmd := range commands {
+				fmt.Printf("  - %s\r\n", format.StyleCyan.Sprint(cmd))
+			}
+
+		case "password":
+			pw, err := ed.ReadPassword("Enter secret token: ")
+			if err != nil {
+				fmt.Printf("Password entry cancelled (%v)\r\n", err)
+			} else {
+				fmt.Printf("Received token length: %d characters (not persisted to history)\r\n", len(pw))
+			}
+
 		case "history":
 			historyItems := ed.History()
 			if len(historyItems) == 0 {
@@ -86,22 +101,13 @@ func main() {
 			for i, h := range historyItems {
 				fmt.Printf("%s %s\r\n", format.StyleFaint.Sprintf("%3d)", i+1), format.StyleBoldWhite.Sprint(h))
 			}
+
 		case "clear":
 			fmt.Print("\033[2J\033[H")
-		default:
-			// Restore cooked mode for child-process output, then re-enter raw.
-			ed.Close()
 
-			// Highlight the executed command in light cyan/yellow
+		default:
 			cmdStyle := format.New().Bold().Fg(format.BrightYellow)
 			fmt.Printf("Executed: %s\r\n", cmdStyle.Sprint(line))
-
-			// Re-open the editor (reuses the same history file).
-			ed, err = readline.New(config)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s %v\n", format.StyleBoldRed.Sprint("readline error:"), err)
-				return
-			}
 		}
 	}
 }
