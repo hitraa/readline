@@ -167,3 +167,20 @@ func (h *History) SaveFile(path string, entries []string) error {
 	}
 	return w.Flush()
 }
+
+// CompactFile rewrites the history file at path keeping at most maxSize entries.
+func (h *History) CompactFile(path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+	for _, e := range h.entries {
+		if _, err := w.WriteString(e + "\n"); err != nil {
+			return err
+		}
+	}
+	return w.Flush()
+}
