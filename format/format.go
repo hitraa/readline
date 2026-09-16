@@ -409,23 +409,23 @@ var (
 )
 
 // Helper functions for quick standard styling
-func SprintBold(a ...any) string { return StyleBold.Sprint(a...) }
-func SprintRed(a ...any) string  { return StyleRed.Sprint(a...) }
-func SprintGreen(a ...any) string { return StyleGreen.Sprint(a...) }
-func SprintYellow(a ...any) string { return StyleYellow.Sprint(a...) }
-func SprintBlue(a ...any) string { return StyleBlue.Sprint(a...) }
+func SprintBold(a ...any) string    { return StyleBold.Sprint(a...) }
+func SprintRed(a ...any) string     { return StyleRed.Sprint(a...) }
+func SprintGreen(a ...any) string   { return StyleGreen.Sprint(a...) }
+func SprintYellow(a ...any) string  { return StyleYellow.Sprint(a...) }
+func SprintBlue(a ...any) string    { return StyleBlue.Sprint(a...) }
 func SprintMagenta(a ...any) string { return StyleMagenta.Sprint(a...) }
-func SprintCyan(a ...any) string { return StyleCyan.Sprint(a...) }
-func SprintWhite(a ...any) string { return StyleWhite.Sprint(a...) }
+func SprintCyan(a ...any) string    { return StyleCyan.Sprint(a...) }
+func SprintWhite(a ...any) string   { return StyleWhite.Sprint(a...) }
 
-func SprintfBold(f string, a ...any) string { return StyleBold.Sprintf(f, a...) }
-func SprintfRed(f string, a ...any) string  { return StyleRed.Sprintf(f, a...) }
-func SprintfGreen(f string, a ...any) string { return StyleGreen.Sprintf(f, a...) }
-func SprintfYellow(f string, a ...any) string { return StyleYellow.Sprintf(f, a...) }
-func SprintfBlue(f string, a ...any) string { return StyleBlue.Sprintf(f, a...) }
+func SprintfBold(f string, a ...any) string    { return StyleBold.Sprintf(f, a...) }
+func SprintfRed(f string, a ...any) string     { return StyleRed.Sprintf(f, a...) }
+func SprintfGreen(f string, a ...any) string   { return StyleGreen.Sprintf(f, a...) }
+func SprintfYellow(f string, a ...any) string  { return StyleYellow.Sprintf(f, a...) }
+func SprintfBlue(f string, a ...any) string    { return StyleBlue.Sprintf(f, a...) }
 func SprintfMagenta(f string, a ...any) string { return StyleMagenta.Sprintf(f, a...) }
-func SprintfCyan(f string, a ...any) string { return StyleCyan.Sprintf(f, a...) }
-func SprintfWhite(f string, a ...any) string { return StyleWhite.Sprintf(f, a...) }
+func SprintfCyan(f string, a ...any) string    { return StyleCyan.Sprintf(f, a...) }
+func SprintfWhite(f string, a ...any) string   { return StyleWhite.Sprintf(f, a...) }
 
 // Standard ANSI sequence regex matching any standard terminal control character seq.
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;?]*[a-zA-Z]`)
