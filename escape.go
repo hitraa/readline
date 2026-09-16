@@ -14,14 +14,23 @@ const (
 // into Key values.  Feed one byte at a time; when complete==true the returned
 // key (and optional rune) represent the fully parsed event.
 type EscapeParser struct {
-	state  parserState
-	params []byte // accumulates CSI parameter bytes
+	state   parserState
+	params  []byte // accumulates CSI parameter bytes
+	pending []byte // unconsumed bytes buffered during escape resolution
 }
 
 // Feed processes a single raw byte and returns the resulting event.
 // If complete is false the machine is still accumulating an escape sequence and
 // the caller should feed more bytes.
 func (p *EscapeParser) Feed(b byte) (key Key, r rune, complete bool) {
+	// If there are unconsumed pending bytes from a previous incomplete sequence, drain them first
+	if len(p.pending) > 0 {
+		next := p.pending[0]
+		p.pending = p.pending[1:]
+		p.pending = append(p.pending, b)
+		return p.fromByte(next)
+	}
+
 	switch p.state {
 
 	// ── Normal state ─────────────────────────────────────────────────────────
@@ -43,8 +52,25 @@ func (p *EscapeParser) Feed(b byte) (key Key, r rune, complete bool) {
 		case 'O':
 			p.state = stateESCO
 			return 0, 0, false
-		default:
+		case 'b', 'B':
 			p.state = stateNormal
+			return KeyAltB, 0, true
+		case 'f', 'F':
+			p.state = stateNormal
+			return KeyAltF, 0, true
+		case 'd', 'D':
+			p.state = stateNormal
+			return KeyAltD, 0, true
+		case 'y', 'Y':
+			p.state = stateNormal
+			return KeyAltY, 0, true
+		case 0x7F, 0x08:
+			p.state = stateNormal
+			return KeyAltBackspace, 0, true
+		default:
+			// Unrecognized escape: return KeyEsc, but keep b as pending so it's not lost
+			p.state = stateNormal
+			p.pending = append(p.pending, b)
 			return KeyEsc, 0, true
 		}
 
@@ -82,10 +108,26 @@ func (p *EscapeParser) Feed(b byte) (key Key, r rune, complete bool) {
 	return 0, 0, false
 }
 
+// HasPending reports if there are pending buffered bytes.
+func (p *EscapeParser) HasPending() bool {
+	return len(p.pending) > 0
+}
+
+// PopPending returns the next pending key event, if any.
+func (p *EscapeParser) PopPending() (Key, rune, bool) {
+	if len(p.pending) == 0 {
+		return 0, 0, false
+	}
+	b := p.pending[0]
+	p.pending = p.pending[1:]
+	return p.fromByte(b)
+}
+
 // Reset returns the parser to the normal state, discarding any partial sequence.
 func (p *EscapeParser) Reset() {
 	p.state = stateNormal
 	p.params = p.params[:0]
+	p.pending = p.pending[:0]
 }
 
 // InSequence reports whether the parser is mid-escape-sequence.
@@ -117,17 +159,27 @@ func (p *EscapeParser) dispatchCSI(final byte) (Key, rune, bool) {
 	case 'B':
 		return KeyArrowDown, 0, true
 	case 'C':
+		if param == "1;5" {
+			return KeyCtrlRight, 0, true
+		}
 		return KeyArrowRight, 0, true
 	case 'D':
+		if param == "1;5" {
+			return KeyCtrlLeft, 0, true
+		}
 		return KeyArrowLeft, 0, true
 	case 'H':
 		return KeyHome, 0, true
 	case 'F':
 		return KeyEnd, 0, true
+	case 'Z':
+		return KeyBackTab, 0, true
 	case '~':
 		switch param {
 		case "1", "7":
 			return KeyHome, 0, true
+		case "2":
+			return KeyInsert, 0, true
 		case "3":
 			return KeyDelete, 0, true
 		case "4", "8":
@@ -136,6 +188,10 @@ func (p *EscapeParser) dispatchCSI(final byte) (Key, rune, bool) {
 			return KeyPageUp, 0, true
 		case "6":
 			return KeyPageDown, 0, true
+		case "200":
+			return KeyPasteStart, 0, true
+		case "201":
+			return KeyPasteEnd, 0, true
 		}
 	}
 	return KeyEsc, 0, true
