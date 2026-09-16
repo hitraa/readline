@@ -14,6 +14,7 @@ type terminal struct {
 	fd       int
 	orig     syscall.Termios
 	inRaw    bool
+	isTerm   bool
 	sigWinCh chan os.Signal
 	onResize func(cols, rows int)
 }
@@ -22,8 +23,11 @@ func newTerminal(f *os.File, enableSignals bool) (*terminal, error) {
 	t := &terminal{fd: int(f.Fd())}
 	orig, err := tcGet(t.fd)
 	if err != nil {
-		return nil, err
+		// Stdin is not a terminal (e.g. pipe or redirected file)
+		t.isTerm = false
+		return t, nil
 	}
+	t.isTerm = true
 	t.orig = orig
 
 	raw := orig
@@ -49,9 +53,14 @@ func newTerminal(f *os.File, enableSignals bool) (*terminal, error) {
 	return t, nil
 }
 
-// enterRaw re-applies raw mode (no-op if already raw).
+// IsTerminal reports whether the terminal file descriptor is a real TTY.
+func (t *terminal) IsTerminal() bool {
+	return t.isTerm
+}
+
+// enterRaw re-applies raw mode (no-op if already raw or not a terminal).
 func (t *terminal) enterRaw() error {
-	if t.inRaw {
+	if !t.isTerm || t.inRaw {
 		return nil
 	}
 	orig, err := tcGet(t.fd)
@@ -76,7 +85,7 @@ func (t *terminal) enterRaw() error {
 
 // leaveRaw restores the terminal to its state before entering raw mode.
 func (t *terminal) leaveRaw() error {
-	if !t.inRaw {
+	if !t.isTerm || !t.inRaw {
 		return nil
 	}
 	if err := tcSet(t.fd, &t.orig); err != nil {
@@ -89,6 +98,9 @@ func (t *terminal) leaveRaw() error {
 // WatchResize starts a goroutine that calls fn whenever the terminal is resized.
 // Call the returned stop function to stop watching.
 func (t *terminal) WatchResize(fn func(cols, rows int)) func() {
+	if !t.isTerm {
+		return func() {}
+	}
 	t.sigWinCh = make(chan os.Signal, 1)
 	t.onResize = fn
 	signal.Notify(t.sigWinCh, syscall.SIGWINCH)
@@ -109,6 +121,9 @@ func (t *terminal) WatchResize(fn func(cols, rows int)) func() {
 
 // GetSize returns the current terminal dimensions.
 func (t *terminal) GetSize() (cols, rows int, err error) {
+	if !t.isTerm {
+		return 80, 24, nil
+	}
 	type winsize struct {
 		Row, Col       uint16
 		Xpixel, Ypixel uint16
@@ -121,9 +136,16 @@ func (t *terminal) GetSize() (cols, rows int, err error) {
 		uintptr(unsafe.Pointer(&ws)),
 	)
 	if errno != 0 {
-		return 0, 0, errno
+		return 80, 24, errno
 	}
-	return int(ws.Col), int(ws.Row), nil
+	c, r := int(ws.Col), int(ws.Row)
+	if c <= 0 {
+		c = 80
+	}
+	if r <= 0 {
+		r = 24
+	}
+	return c, r, nil
 }
 
 // Close restores the original terminal settings.
